@@ -36,14 +36,9 @@ footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;
 }
 @media (max-width:500px){
   /* iPhone-only layout. Desktop and iPad rules above are intentionally untouched. */
-  header{height:76px;flex-basis:76px;padding:6px 10px;display:block;overflow:hidden}
-  .title{font-size:17px;line-height:24px;white-space:nowrap;display:block}
-  .header-info{height:40px;display:flex;align-items:center;gap:5px;overflow:hidden;white-space:nowrap}
-  .weather{font-size:10px;flex:0 0 auto}
-  .warnings{font-size:10px;flex:0 0 auto}
-  .date{font-size:9px;flex:0 0 auto}
-  .clock{font-size:14px;flex:0 0 auto}
-  main{grid-template-rows:auto minmax(0,1fr);padding:6px;gap:6px}
+  /* Hide the entire top header on iPhone only: title, weather, warnings, date and clock. */
+  header{display:none}
+  main{grid-template-rows:225px minmax(0,1fr);padding:6px;gap:6px}
   .panel h2{font-size:16px;padding:7px 10px}.row{grid-template-columns:50px 1fr 150px;height:52px;min-height:52px}.route{font-size:19px}.dest{font-size:12px}.eta{font-size:19px}.eta-next{font-size:10px}.eta.remark{font-size:12px}
   .rows{overflow:auto}
 }
