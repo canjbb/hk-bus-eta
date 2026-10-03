@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>香港巴士 ETA · iPad Air</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#101010;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
+body{overflow:hidden}
+#app{height:100%;height:100vh;display:flex;flex-direction:column}
+header{height:64px;flex:0 0 64px;padding:8px 18px;display:flex;align-items:center;justify-content:space-between;background:#181818;border-bottom:1px solid #303030}
+.title{font-size:24px;font-weight:700}.clock{font-size:23px;font-variant-numeric:tabular-nums}
+main{flex:1;display:grid;grid-template-columns:1fr 1.5fr;gap:12px;padding:12px;min-height:0}
+.panel{background:#181818;border:1px solid #303030;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.panel h2{margin:0;padding:11px 16px;font-size:20px;background:#202020;flex:0 0 auto}.rows{overflow:hidden;flex:1;min-height:0}
+.row{display:grid;grid-template-columns:68px 1fr 190px;align-items:center;min-height:58px;height:58px;padding:5px 12px;border-top:1px solid #2b2b2b}
+.route{font-size:24px;font-weight:800}.dest{font-size:15px;color:#c9c9c9}.eta-stack{text-align:right;line-height:1.05}.eta{text-align:right;font-size:25px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}.eta-next{margin-top:3px;font-size:12px;font-weight:600;color:#999;font-variant-numeric:tabular-nums;white-space:nowrap}.eta-next.none{color:#777}
+.eta.soon{color:#ffd34d}.eta.now{color:#ff7777}.eta.none{color:#888;font-size:17px;white-space:normal}
+.meta{font-size:10px;color:#777;text-align:right;margin-top:1px}
+footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;background:#181818;border-top:1px solid #333;color:#aaa;font-size:12px}
+.badge{padding:4px 8px;border-radius:7px;background:#242424}
+
+/* iPad / narrow portrait layout: the primary target is a first-generation iPad Air held vertically. */
+@media (max-width:900px){
+  header{height:58px;flex-basis:58px;padding:7px 14px}.title{font-size:20px}.clock{font-size:19px}
+  main{grid-template-columns:1fr;grid-template-rows:190px minmax(590px,1fr);gap:9px;padding:9px}
+  .panel h2{padding:9px 13px;font-size:18px}
+  .row{grid-template-columns:58px 1fr 175px;min-height:62px;height:62px;padding:4px 10px}
+  .route{font-size:22px}.dest{font-size:14px}.eta{font-size:22px}.eta-next{font-size:11px}.eta.none{font-size:15px}.meta{font-size:9px}
+  footer{height:38px;flex-basis:38px;padding:0 10px;font-size:11px}
+}
+
+/* Very narrow phones: still usable, but this project is designed around iPad portrait. */
+@media (max-width:500px){
+  header{height:52px;flex-basis:52px}.title{font-size:17px}.clock{font-size:16px}
+  main{grid-template-rows:175px minmax(430px,1fr);padding:6px;gap:6px}
+  .panel h2{font-size:16px;padding:7px 10px}.row{grid-template-columns:50px 1fr 150px;height:52px;min-height:52px}.route{font-size:19px}.dest{font-size:12px}.eta{font-size:19px}.eta-next{font-size:10px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header><div class="title">🚌 香港巴士 ETA</div><div class="clock" id="clock">--:--:--</div></header>
+<main>
+<section class="panel"><h2>📍 彩福總站</h2><div class="rows" id="cai-fu"></div></section>
+<section class="panel"><h2>🚉 九龍灣鐵路站</h2><div class="rows" id="kowloon-bay"></div></section>
+</main>
+<footer><span id="updated">最後更新：尚未取得</span><span class="badge" id="status">啟動中</span></footer>
+</div>
+
+<script>
+/*
+ v0.5.5
+ - Desktop: two-column electronic board.
+ - iPad portrait: two stacked panels, with the Kowloon Bay panel given more height.
+ - ETA is polled every 30 seconds, while the displayed countdown is recalculated every second.
+ - The API may still publish new data only about once per minute; repeated polls simply pick up the newest published batch as soon as it is available.
+ - E22 is Citybus. Its stop ID is resolved from the official Citybus Route-Stop API at runtime,
+   rather than guessing a 6-digit stop ID. Direction is inbound: the requested trip is Kowloon Bay -> Lam Tin (North),
+   i.e. towards the route origin at Lam Tin (North).
+*/
+
+const CONFIG={
+ refreshMs:30000,
+ caiFu:[
+  {route:"9",dest:"尖沙咀",apiDest:"尖沙咀",co:"KMB",stopId:"C6795D3E5B50AD5A",serviceType:"1"},
+  {route:"28B",dest:"啟德",apiDest:"啟德",co:"KMB",stopId:"147E43B06313402E",serviceType:"1"},
+  {route:"2X",dest:"美孚",apiDest:"美孚",co:"KMB",stopId:"534DB02642325617",serviceType:"1"}
+ ],
+ kowloonBay:[
+  {route:"74X",dest:"觀塘碼頭",apiDest:"觀塘碼頭",co:"KMB",stopId:"060699911C9E300F",serviceType:"1"},
+  {route:"80",dest:"觀塘碼頭",apiDest:"觀塘碼頭",co:"KMB",stopId:"060699911C9E300F",serviceType:"1"},
+  {route:"80X",dest:"觀塘碼頭",apiDest:"觀塘碼頭",co:"KMB",stopId:"BC7C325EE59235E4",serviceType:"1"},
+  {route:"80P",dest:"觀塘碼頭",apiDest:"觀塘碼頭",co:"KMB",stopId:"060699911C9E300F",serviceType:"1"},
+  {route:"40",dest:"麗港城",apiDest:"麗港城",co:"KMB",stopId:"66B78B49B8E626C9",serviceType:"1"},
+  {route:"40P",dest:"觀塘碼頭",apiDest:"觀塘碼頭",co:"KMB",stopId:"66B78B49B8E626C9",serviceType:"1"},
+  {route:"1A",dest:"中秀茂坪",apiDest:"中秀茂坪",co:"KMB",stopId:"8C09B3648DCDAF3C",serviceType:"1"},
+  {route:"11B",dest:"觀塘翠屏道",apiDest:"觀塘",co:"KMB",stopId:"66B78B49B8E626C9",serviceType:"1"},
+  {route:"E22",dest:"藍田",apiDest:"藍田",co:"CTB",stopId:null,direction:"inbound",serviceType:null}
+ ]
+};
+
+const state=new Map();
+
+function keyFor(id,i){return id+"::"+i}
+
+function render(id,list){
+ document.getElementById(id).innerHTML=list.map((x,i)=>`
+ <div class="row">
+  <div class="route">${x.route}</div>
+  <div><div class="dest">${x.dest}</div><div class="meta">${x.co}</div></div>
+  <div class="eta-stack">
+   <div class="eta none" id="eta-${id}-${i}">載入中…</div>
+   <div class="eta-next none" id="next-${id}-${i}">下一班：--</div>
+  </div>
+ </div>`).join("");
+}
+render("cai-fu",CONFIG.caiFu);render("kowloon-bay",CONFIG.kowloonBay);
+
+function clock(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("zh-HK",{hour12:false})}
+clock();setInterval(clock,1000);
+
+function setEta(el,text,mins){
+ el.textContent=text;
+ el.className="eta "+(mins!==null&&mins<=2?"now":mins!==null&&mins<=8?"soon":"");
+}
+function setNextEta(el,text,mins){
+ el.textContent=text;
+ el.className="eta-next"+(mins===null?" none":"");
+}
+
+function setTarget(id,i,etaList,sourceTimestamp){
+ const etas=(etaList||[])
+  .map(d=>({etaMs:new Date(d.eta).getTime(),sourceTimestamp:d.data_timestamp||sourceTimestamp||null}))
+  .filter(x=>Number.isFinite(x.etaMs))
+  .sort((a,b)=>a.etaMs-b.etaMs);
+ state.set(keyFor(id,i),{etas,sourceTimestamp:sourceTimestamp||null});
+}
+
+function clearTarget(id,i){
+ state.delete(keyFor(id,i));
+ const nextEl=document.getElementById(`next-${id}-${i}`);
+ if(nextEl)setNextEta(nextEl,"下一班：--",null);
+}
+
+function updateCountdowns(){
+ const now=Date.now();
+ state.forEach((v,k)=>{
+  const p=k.split("::");
+  const id=p[0], i=p[1];
+  const el=document.getElementById(`eta-${id}-${i}`);
+  const nextEl=document.getElementById(`next-${id}-${i}`);
+  if(!el||!nextEl)return;
+
+  // Keep all returned ETA records internally. Display only the current bus and the next bus.
+  // When the first bus passes, the second immediately becomes the current bus.
+  const future=v.etas.filter(x=>x.etaMs>now);
+  const current=future[0]||null;
+  const following=future[1]||null;
+
+  if(!current){
+   setEta(el,"沒有預定班次",null);
+   setNextEta(nextEl,"下一班：--",null);
+   return;
+  }
+
+  const ms=current.etaMs-now;
+  if(ms<=60000){
+   setEta(el,"即將到站",0);
+  }else{
+   const mins=Math.floor(ms/60000);
+   setEta(el,mins+" 分鐘",mins);
+  }
+
+  if(following){
+   const nextMs=following.etaMs-now;
+   const nextText=nextMs<=60000?"即將到站":Math.floor(nextMs/60000)+" 分鐘";
+   setNextEta(nextEl,"下一班："+nextText,nextMs<=60000?0:Math.floor(nextMs/60000));
+  }else{
+   setNextEta(nextEl,"下一班：--",null);
+  }
+ });
+}
+setInterval(updateCountdowns,1000);
+
+async function kmbEta(x){
+ const u=`https://data.etabus.gov.hk/v1/transport/kmb/eta/${x.stopId}/${encodeURIComponent(x.route)}/${x.serviceType}`;
+ const r=await fetch(u,{cache:"no-store"});
+ if(!r.ok)throw new Error("HTTP "+r.status);
+ const j=await r.json();
+ return (j.data||[]).filter(d=>d.eta&&(!x.apiDest||(d.dest_tc||"").includes(x.apiDest))).sort((a,b)=>new Date(a.eta)-new Date(b.eta));
+}
+
+async function resolveCtbStop(x){
+ if(x.stopId)return x.stopId;
+ const cacheKey=`hkbus_ctb_stop_${x.route}_${x.direction||"outbound"}`;
+ try{
+  const cached=localStorage.getItem(cacheKey);
+  if(cached){x.stopId=cached;return cached;}
+ }catch(e){}
+
+ const dir=x.direction||"outbound";
+ const u=`https://rt.data.gov.hk/v2/transport/citybus/route-stop/CTB/${encodeURIComponent(x.route)}/${dir}`;
+ const r=await fetch(u,{cache:"no-store"});
+ if(!r.ok)throw new Error("CTB route-stop HTTP "+r.status);
+ const j=await r.json();
+ const stops=j.data||[];
+
+ // Resolve all stop names in parallel. The previous version queried them one-by-one,
+ // which made E22's first load unnecessarily slow on the old iPad.
+ const candidates=await Promise.all(stops.map(async item=>{
+  const stopId=item.stop;
+  try{
+   const sr=await fetch(`https://rt.data.gov.hk/v2/transport/citybus/stop/${stopId}`,{cache:"no-store"});
+   if(!sr.ok)return null;
+   const sj=await sr.json();
+   const d=sj.data||{};
+   return (d.name_tc||"").indexOf("九龍灣站")>=0?stopId:null;
+  }catch(e){return null;}
+ }));
+ const found=candidates.find(Boolean);
+ if(found){
+  x.stopId=found;
+  try{localStorage.setItem(cacheKey,found);}catch(e){}
+  return found;
+ }
+ throw new Error("CTB Kowloon Bay stop not found");
+}
+
+async function ctbEta(x){
+ const stopId=await resolveCtbStop(x);
+ const u=`https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/${stopId}/${encodeURIComponent(x.route)}`;
+ const r=await fetch(u,{cache:"no-store"});
+ if(!r.ok)throw new Error("HTTP "+r.status);
+ const j=await r.json();
+ return (j.data||[]).filter(d=>d.eta&&(!x.apiDest||(d.dest_tc||"").includes(x.apiDest))).sort((a,b)=>new Date(a.eta)-new Date(b.eta));
+}
+
+async function refreshGroup(id,list){
+ for(let i=0;i<list.length;i++){
+  const x=list[i],el=document.getElementById(`eta-${id}-${i}`);
+  try{
+   const data=x.co==="CTB"?await ctbEta(x):await kmbEta(x);
+   const d=data[0];
+   if(!d){clearTarget(id,i);setEta(el,"沒有預定班次",null);continue}
+   setTarget(id,i,data,d.data_timestamp||null);
+   updateCountdowns();
+  }catch(e){
+   /* Keep an already-known ETA visible if a refresh briefly fails. */
+   if(!state.has(keyFor(id,i)))setEta(el,"暫時無法取得",null);
+  }
+ }
+}
+
+let refreshing=false;
+async function refresh(){
+ if(refreshing)return;
+ refreshing=true;
+ document.getElementById("status").textContent="更新中…";
+ await Promise.all([refreshGroup("cai-fu",CONFIG.caiFu),refreshGroup("kowloon-bay",CONFIG.kowloonBay)]);
+ document.getElementById("updated").textContent="最後更新："+new Date().toLocaleTimeString("zh-HK",{hour12:false});
+ document.getElementById("status").textContent="每30秒更新";
+ refreshing=false;
+}
+// Run once now, then poll every 30 seconds.
+// KMB/Citybus ETA data is published about once per minute, but the publication
+// time is not guaranteed to be exactly on :00. Polling every 30s reduces the
+// chance of waiting 15-30+ seconds for the next published batch.
+refresh();
+setInterval(refresh,CONFIG.refreshMs);
+</script>
+</body></html>
