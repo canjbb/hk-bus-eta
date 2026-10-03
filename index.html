@@ -42,6 +42,10 @@ footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;
 
 .warnings{font-size:15px;color:#ddd;font-variant-numeric:tabular-nums;white-space:nowrap}
 .warnings.active{font-weight:700}
+.status-dot{font-family:Arial,sans-serif;font-weight:700;font-size:20px;line-height:0;vertical-align:-1px}
+.status-dot.green{color:#35d07f}
+.status-dot.orange{color:#ff9f43}
+.status-dot.yellow{color:#ffd43b}
 </style>
 </head>
 <body>
@@ -49,7 +53,7 @@ footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;
 <header>
   <div class="title">🚌 香港巴士 ETA</div>
   <div class="header-info">
-    <div class="weather" id="weather">🌤️ 觀塘 --°C　最高--°　最低--°</div><div class="warnings" id="warnings">🟢 無天氣警告</div>
+    <div class="weather" id="weather">🌤️ 觀塘 --°C　最高--°　最低--°</div><div class="warnings" id="warnings"><span class="status-dot green">●</span> 無天氣警告</div>
     <div class="date" id="date">----年--月--日 星期-</div>
     <div class="clock" id="clock">--:--:--</div>
   </div>
@@ -58,11 +62,12 @@ footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;
 <section class="panel"><h2>📍 彩福總站</h2><div class="rows" id="cai-fu"></div></section>
 <section class="panel"><h2>🚉 九龍灣鐵路站</h2><div class="rows" id="kowloon-bay"></div></section>
 </main>
-<footer><span id="updated">🟠 更新中　上次成功：尚未取得</span><span class="badge" id="status">啟動中</span></footer>
+<footer><span id="updated"><span class="status-dot orange">●</span> 更新中　上次成功：尚未取得</span><span class="badge" id="status">啟動中</span></footer>
 </div>
 <script>
 /*
- v0.6.6
+ v0.6.12
+ - Replaced newer green/orange/yellow circle emojis with CSS-colored legacy-safe bullet dots for iOS 12 compatibility.
  - Header adds Chinese date plus HKO Kwun Tong current/high/low temperature and simplified weather icon.
  - KMB/Citybus ETA remains on a 30-second polling cycle; countdown updates every second.
  - KMB ETA remarks (rmk_tc) replace the large ETA time when a current ETA has a remark,
@@ -291,16 +296,16 @@ async function refresh(){
   lastSuccessfulBusUpdate=now;
   const t=now.toLocaleTimeString("zh-HK",{hour12:false});
   const updated=document.getElementById("updated");
-  updated.textContent=`🟢 資料正常　最後更新：${t}`;
+  updated.innerHTML=`<span class="status-dot green">●</span> 資料正常　最後更新：${t}`;
   updated.className="ok";
   document.getElementById("status").textContent="每30秒更新";
  }else{
   const updated=document.getElementById("updated");
   updated.className="fail";
   if(lastSuccessfulBusUpdate){
-   updated.textContent=`🟠 更新失敗　上次成功：${lastSuccessfulBusUpdate.toLocaleTimeString("zh-HK",{hour12:false})}`;
+   updated.innerHTML=`<span class="status-dot orange">●</span> 更新失敗　上次成功：${lastSuccessfulBusUpdate.toLocaleTimeString("zh-HK",{hour12:false})}`;
   }else{
-   updated.textContent="🟠 更新失敗　尚未成功取得";
+   updated.innerHTML='<span class="status-dot orange">●</span> 更新失敗　尚未成功取得';
   }
   document.getElementById("status").textContent=`部分失敗（${failures}）`;
  }
@@ -332,13 +337,14 @@ window.hkoTodayForecast={max:null,min:null,date:null};
 
 const hkoWarningMap={
   WFIREY:"🔥",WFIRER:"🔥",WFROST:"❄️",WHOT:"🥵",WCOLD:"🥶",
-  WMSGNL:"🌬️",WRAINA:"🟡",WRAINR:"🔴",WRAINB:"⚫",
+  WMSGNL:"🌬️",WRAINA:"●",WRAINR:"🔴",WRAINB:"⚫",
   WFNTSA:"💧",WL:"⛰️",WTMW:"🌊",WTS:"⛈️",
   TC1:"1️⃣",TC3:"3️⃣",TC8NE:"8️⃣",TC8SE:"8️⃣",TC8SW:"8️⃣",TC8NW:"8️⃣",
   TC9:"9️⃣",TC10:"🔟",WTCPRE8:"🔔"
 };
 
 function hkoWarningLabel(code,name){
+  if(code==="WRAINA") return `<span class="status-dot yellow">●</span> ${name||code}`;
   return `${hkoWarningMap[code]} ${name||code}`;
 }
 
@@ -385,10 +391,10 @@ async function refreshWarnings(){
     if(!el) return;
 
     if(unique.length){
-      el.textContent=unique.map(x=>hkoWarningLabel(x.code,x.name)).join("　");
+      el.innerHTML=unique.map(x=>hkoWarningLabel(x.code,x.name)).join("　");
       el.className="warnings active";
     }else{
-      el.textContent="🟢 無天氣警告";
+      el.innerHTML='<span class="status-dot green">●</span> 無天氣警告';
       el.className="warnings";
     }
   }catch(e){
