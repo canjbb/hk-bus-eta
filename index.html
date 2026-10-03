@@ -317,7 +317,7 @@ const hkoIconMap={
 };
 
 function getHkoForecastTemp(j){
- const data=j.temperature?.data||[];
+ const data=(j.temperature&&j.temperature.data)||[];
  // Prefer the explicit "最高氣溫／最低氣溫" forecast fields when present.
  const maxCandidates=data.filter(x=>/最高|最高氣溫/.test(x.place||""));
  const minCandidates=data.filter(x=>/最低|最低氣溫/.test(x.place||""));
@@ -401,54 +401,52 @@ async function refreshWeather(){
   const currentUrl="https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc";
   const forecastUrl="https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc";
 
-  // Current weather and forecast are independent: one failure must not erase
-  // the other successful value.
-  const [currentResult,forecastResult]=await Promise.allSettled([
-   fetch(currentUrl,{cache:"no-store"}),
-   fetch(forecastUrl,{cache:"no-store"})
-  ]);
+  // Keep the two HKO requests independent for Safari/iOS 12 compatibility.
+  let current=null;
+  let forecast=null;
 
-  let currentOk=false;
-  if(currentResult.status==="fulfilled" && currentResult.value.ok){
-   const current=await currentResult.value.json();
-   const temp=(current.temperature?.data||[]).find(x=>x.place==="觀塘");
+  try{
+   const response=await fetch(currentUrl,{cache:"no-store"});
+   if(response.ok) current=await response.json();
+  }catch(e){}
+
+  try{
+   const response=await fetch(forecastUrl,{cache:"no-store"});
+   if(response.ok) forecast=await response.json();
+  }catch(e){}
+
+  if(current){
+   const temp=(current.temperature&&current.temperature.data||[]).find(x=>x.place==="觀塘");
    if(temp){
     const iconCode=Array.isArray(current.icon)&&current.icon.length?Number(current.icon[0]):null;
     const icon=hkoIconMap[iconCode]||"🌤️";
-    // Keep the last successful forecast values if only current weather changed.
     const currentForecast=window.hkoTodayForecast||{max:null,min:null,date:null};
     const maxText=currentForecast.max!==null?`最高${currentForecast.max}°`:"最高--°";
     const minText=currentForecast.min!==null?`最低${currentForecast.min}°`:"最低--°";
     document.getElementById("weather").textContent=
       `${icon} 觀塘 ${temp.value}°C　${maxText}　${minText}`;
-    currentOk=true;
    }
   }
 
-  if(forecastResult.status==="fulfilled" && forecastResult.value.ok){
-   const forecast=await forecastResult.value.json();
+  if(forecast){
    const todayKey=new Date().getFullYear().toString()+
      String(new Date().getMonth()+1).padStart(2,"0")+
      String(new Date().getDate()).padStart(2,"0");
 
-   // IMPORTANT: use today's forecastDate only. Never fall back to tomorrow.
    const today=(forecast.weatherForecast||[]).find(x=>String(x.forecastDate)===todayKey);
 
    if(today){
-    const max=today.forecastMaxtemp?.value;
-    const min=today.forecastMintemp?.value;
+    const max=today.forecastMaxtemp&&today.forecastMaxtemp.value;
+    const min=today.forecastMintemp&&today.forecastMintemp.value;
     window.hkoTodayForecast={
       max:max!==undefined&&max!==null?max:null,
       min:min!==undefined&&min!==null?min:null,
       date:todayKey
     };
    }else{
-    // No forecast for today: deliberately show -- rather than using tomorrow.
     window.hkoTodayForecast={max:null,min:null,date:todayKey};
    }
 
-   // Refresh the header with the latest current temperature while preserving
-   // the newly matched today's forecast values.
    const currentText=document.getElementById("weather").textContent;
    const tempMatch=currentText.match(/觀塘\s+([^　]+°C)/);
    const iconMatch=currentText.match(/^(\S+)/);
@@ -462,7 +460,7 @@ async function refreshWeather(){
   }else if(!window.hkoTodayForecast){
    window.hkoTodayForecast={max:null,min:null,date:null};
   }
- }catch(e){
+}catch(e){
   // Keep the last successful HKO values on transient failures.
  }
 }
