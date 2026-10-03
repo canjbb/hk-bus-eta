@@ -95,7 +95,7 @@ const state=new Map();
 
 function keyFor(id,i){return id+"::"+i}
 function esc(s){
- return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 }
 function render(id,list){
  document.getElementById(id).innerHTML=list.map((x,i)=>`
