@@ -17,7 +17,7 @@ header{height:64px;flex:0 0 64px;padding:8px 18px;display:flex;align-items:cente
 .clock{font-size:23px;font-variant-numeric:tabular-nums}
 main{flex:1;display:grid;grid-template-columns:1fr 1.5fr;gap:12px;padding:12px;min-height:0}
 .panel{background:#181818;border:1px solid #303030;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
-.panel h2{margin:0;padding:11px 16px;font-size:20px;background:#202020;flex:0 0 auto}.rows{overflow:hidden;flex:1;min-height:0}
+.panel h2{margin:0;padding:11px 16px;font-size:20px;background:#202020;flex:0 0 auto}.rows{overflow:auto;flex:1;min-height:0}
 .row{display:grid;grid-template-columns:68px 1fr 190px;align-items:center;min-height:58px;height:58px;padding:5px 12px;border-top:1px solid #2b2b2b}
 .route{font-size:24px;font-weight:800}.dest{font-size:15px;color:#c9c9c9}.eta-stack{text-align:right;line-height:1.05}.eta{text-align:right;font-size:25px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}.eta-next{margin-top:3px;font-size:12px;font-weight:600;color:#999;font-variant-numeric:tabular-nums;white-space:nowrap}.eta-next.none{color:#777}
 .eta.soon{color:#ffd34d}.eta.now{color:#ff7777}.eta.none{color:#888;font-size:17px;white-space:normal}
@@ -35,9 +35,17 @@ footer{height:42px;flex:0 0 42px;padding:0 14px;display:flex;align-items:center;
   footer{height:38px;flex-basis:38px;padding:0 10px;font-size:11px}
 }
 @media (max-width:500px){
-  header{height:52px;flex-basis:52px}.title{font-size:17px}.header-info{gap:6px}.weather{font-size:11px}.date{font-size:10px}.clock{font-size:16px}
-  main{grid-template-rows:195px minmax(0,1fr);padding:6px;gap:6px}
+  /* iPhone-only layout. Desktop and iPad rules above are intentionally untouched. */
+  header{height:76px;flex-basis:76px;padding:6px 10px;display:block;overflow:hidden}
+  .title{font-size:17px;line-height:24px;white-space:nowrap;display:block}
+  .header-info{height:40px;display:flex;align-items:center;gap:5px;overflow:hidden;white-space:nowrap}
+  .weather{font-size:10px;flex:0 0 auto}
+  .warnings{font-size:10px;flex:0 0 auto}
+  .date{font-size:9px;flex:0 0 auto}
+  .clock{font-size:14px;flex:0 0 auto}
+  main{grid-template-rows:auto minmax(0,1fr);padding:6px;gap:6px}
   .panel h2{font-size:16px;padding:7px 10px}.row{grid-template-columns:50px 1fr 150px;height:52px;min-height:52px}.route{font-size:19px}.dest{font-size:12px}.eta{font-size:19px}.eta-next{font-size:10px}.eta.remark{font-size:12px}
+  .rows{overflow:auto}
 }
 
 .warnings{font-size:15px;color:#ddd;font-variant-numeric:tabular-nums;white-space:nowrap}
